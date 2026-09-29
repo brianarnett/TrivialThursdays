@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "trivial-thursdays",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "trivial-thursdays",
+      "database_id": "64bb9e74-2077-4959-b7ef-171d19f56499",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "vars": {
+    // Cloudflare Access protects /admin. Fill these in after creating the Access application
+    // (Zero Trust → Access → Applications → Self-hosted, path /admin*).
+    "ACCESS_TEAM_DOMAIN": "",   // e.g. "yourteam.cloudflareaccess.com"
+    "ACCESS_AUD": "",           // the application's Audience (AUD) tag
+    "SHOW_TZ": "America/New_York"
+  }
+
+  // To serve www.trivialthursdays.com from this Worker once DNS is on Cloudflare, uncomment:
+  // ,"routes": [
+  //   { "pattern": "trivialthursdays.com", "custom_domain": true },
+  //   { "pattern": "www.trivialthursdays.com", "custom_domain": true }
+  // ]
+}
