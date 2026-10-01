@@ -20,7 +20,8 @@ async function getKeys(team) {
 
 /** Returns { email } for a verified Access user, or { error }. */
 export async function verifyAccess(request, env) {
-  const team = (env.ACCESS_TEAM_DOMAIN || '').trim();
+  // Accept the team domain with or without https:// (the dashboard shows it with).
+  const team = (env.ACCESS_TEAM_DOMAIN || '').trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
   const aud = (env.ACCESS_AUD || '').trim();
   if (!team || !aud) {
     // Local development only: `wrangler dev` with DEV_ADMIN_BYPASS=true in .dev.vars.
