@@ -5,7 +5,7 @@ import * as mail from './email.js';
 import { layout, newNonce, csp } from './views/layout.js';
 import * as pub from './views/public.js';
 import * as adm from './views/admin.js';
-import { esc, showClock, nextThursdayOnOrAfter, addDays, str, isDate, isEmail, safeUrl, sha256, parseClock, KIND_LABEL, SLOT_LABEL, APPEAR_LABEL } from './util.js';
+import { esc, showClock, nextThursdayOnOrAfter, addDays, str, isDate, isEmail, emailList, safeUrl, sha256, parseClock, KIND_LABEL, SLOT_LABEL, APPEAR_LABEL } from './util.js';
 
 const TZ = (env) => env.SHOW_TZ || 'America/New_York';
 
@@ -136,10 +136,9 @@ async function handleSuggest(request, env, ctx, { settings, nonce, turnstileKey,
     (async () => {
       const ack = mail.submissionAck(settings, info);
       await mail.sendEmail(env, settings, { kind: 'submission_ack', to: c.contact_email, content_id: id, ...ack });
-      if (settings.alert_email) {
-        const alert = mail.submissionAlert(settings, info, `${base}/admin/content/${id}`);
-        await mail.sendEmail(env, settings, { kind: 'submission_alert', to: settings.alert_email, content_id: id, replyTo: c.contact_email, ...alert });
-      }
+      const alert = mail.submissionAlert(settings, info, `${base}/admin/content/${id}`);
+      for (const to of emailList(settings.alert_email))
+        await mail.sendEmail(env, settings, { kind: 'submission_alert', to, content_id: id, replyTo: c.contact_email, ...alert });
     })().catch((e) => console.error('submission email', e))
   );
   return htmlResponse(layout({ settings, nonce, title: 'Thanks', current: 'suggest', body: pub.thanksPage({ name: values.contact_name.split(' ')[0] }) }), nonce);
@@ -327,11 +326,15 @@ async function handleAdmin(request, env, ctx, url) {
           if (built.missing.length) problems.push(`No email on file for: ${built.missing.join(', ')}`);
           return page('Send schedule', adm.sendPreview({ show, settings, ...built, changes, problems }), 'layout');
         }
-        if (!settings.alert_email) return redirect(withMsg(`/admin/shows/${id}/send`, "Error: add Mick's email in Settings first."));
-        const s1 = await mail.sendEmail(env, settings, { kind: 'schedule_forward', to: settings.alert_email, show_id: id, actor, ...built.forward });
-        const s2 = await mail.sendEmail(env, settings, { kind: 'schedule_owner', to: settings.alert_email, show_id: id, actor, ...built.owner });
+        const recipients = emailList(settings.alert_email);
+        if (!recipients.length) return redirect(withMsg(`/admin/shows/${id}/send`, "Error: add a notification email in Settings first."));
+        const results = [];
+        for (const to of recipients) {
+          results.push(await mail.sendEmail(env, settings, { kind: 'schedule_forward', to, show_id: id, actor, ...built.forward }));
+          results.push(await mail.sendEmail(env, settings, { kind: 'schedule_owner', to, show_id: id, actor, ...built.owner }));
+        }
         await db.markSent(env.DB, id, db.snapshotOf(show), actor);
-        const how = s1 === 'sent' && s2 === 'sent' ? `Sent to ${settings.alert_email}.` : s1 === 'failed' || s2 === 'failed' ? 'Error: sending failed. See the Email log.' : 'Saved to the Email log (admin email is switched off in Settings).';
+        const how = results.every((r) => r === 'sent') ? `Sent to ${recipients.join(', ')}.` : results.includes('failed') ? 'Error: sending failed. See the Email log.' : 'Saved to the Email log (admin email is switched off in Settings).';
         return redirect(withMsg(`/admin/shows/${id}`, `${built.update ? 'Updated schedule' : 'Final schedule'}: ${how}`));
       }
     }
@@ -406,7 +409,12 @@ async function handleAdmin(request, env, ctx, url) {
         const form = await request.formData();
         const updates = {};
         for (const k of adm.SETTING_KEYS) if (form.has(k)) updates[k] = String(form.getAll(k).pop()).trim().slice(0, 2000);
-        if (updates.alert_email && !isEmail(updates.alert_email)) return redirect(withMsg('/admin/settings', "Error: Mick's email is not a valid address."));
+        if (updates.alert_email !== undefined) {
+          const parts = updates.alert_email.split(/[,;\s]+/).filter(Boolean);
+          const bad = parts.filter((x) => !isEmail(x));
+          if (bad.length) return redirect(withMsg('/admin/settings', `Error: not a valid email address: ${bad.join(', ')}`));
+          updates.alert_email = emailList(updates.alert_email).join(', ');
+        }
         if (updates.show_start && !/^\d{1,2}:\d{2}$/.test(updates.show_start)) return redirect(withMsg('/admin/settings', 'Error: start time must look like 10:00.'));
         if (updates.retention_months) updates.retention_months = String(Math.max(1, Math.min(120, parseInt(updates.retention_months, 10) || 12)));
         await db.saveSettings(env.DB, updates);

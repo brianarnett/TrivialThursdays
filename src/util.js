@@ -63,3 +63,6 @@ export const STAGE_LABEL = {
 };
 export const APPEAR_LABEL = { '': 'Not specified', studio: 'In studio', phone: 'By phone', remote: 'Remote / video' };
 export const CONTENT_SLOT_TYPES = ['guest', 'music', 'announcement', 'feature'];
+
+/** Settings may hold several addresses separated by commas; returns the valid ones, de-duplicated. */
+export const emailList = (v) => [...new Set(String(v || '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(isEmail))];

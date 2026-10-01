@@ -1,5 +1,5 @@
 // Admin screens. `perm` = { edit, send, admin } booleans for the signed-in user.
-import { esc, safeUrl, longDate, mediumDate, monthDay, dow, fmtTime, fmtClock, daysBetween, KIND_LABEL, SLOT_LABEL, STAGE_LABEL, APPEAR_LABEL, CONTENT_SLOT_TYPES, isEmail } from '../util.js';
+import { emailList, esc, safeUrl, longDate, mediumDate, monthDay, dow, fmtTime, fmtClock, daysBetween, KIND_LABEL, SLOT_LABEL, STAGE_LABEL, APPEAR_LABEL, CONTENT_SLOT_TYPES, isEmail } from '../util.js';
 import { ROLES, ROLE_LABEL } from '../auth.js';
 import { withPrefix } from '../email.js';
 
@@ -148,13 +148,13 @@ function emailMiniList(emails) {
 /* ---------------- send final schedule ---------------- */
 
 export function sendPreview({ show, settings, forward, owner, forwardTo, missing, changes, update, problems }) {
-  const to = settings.alert_email;
+  const to = emailList(settings.alert_email).join(', ');
   const on = settings.email_admins_enabled === '1';
   return `<div class="wrap"><section style="max-width:860px">
 <p class="small"><a href="/admin/shows/${show.id}">← Back to the layout</a></p>
 <p class="eyebrow">${update ? 'Send updated schedule' : 'Send final schedule'}</p><h1>${esc(longDate(show.air_date))}</h1>
-<p>Two emails go to <strong>${esc(to || 'no address set')}</strong>: a schedule that's safe to forward to guests, and a private run sheet with contacts and the forwarding list.</p>
-${!to ? `<div class="flash bad">Add Mick's email under Settings → Notifications before sending.</div>` : ''}
+<p>Two emails go to <strong>${esc(to || 'no address set')}</strong> (each address gets its own copy): a schedule that's safe to forward to guests, and a private run sheet with contacts and the forwarding list.</p>
+${!to ? `<div class="flash bad">Add a notification email under Settings → Notifications before sending.</div>` : ''}
 ${to && !on ? `<div class="flash">Admin email is switched off in Settings, so these will be saved to the Email log but not delivered.</div>` : ''}
 ${problems.length ? `<div class="card" style="margin-bottom:16px"><strong>Check before sending</strong><ul>${problems.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></div>` : ''}
 ${changes ? `<div class="card" style="margin-bottom:16px"><strong>Changes since the last send</strong><ul>${[...changes.added.map((c) => `Added: ${c.public_name}`), ...changes.moved.map((c) => `New time: ${c.public_name}`), ...changes.removed.map((c) => `Removed: ${c.public_name}`)].map((x) => `<li>${esc(x)}</li>`).join('') || '<li>No guest or time changes</li>'}</ul></div>` : ''}
@@ -162,7 +162,7 @@ ${changes ? `<div class="card" style="margin-bottom:16px"><strong>Changes since 
 ${missing.length ? `<p class="small muted">No email on file for: ${esc(missing.join(', '))}</p>` : ''}
 <details open><summary><strong>Email 1: ${esc(withPrefix(settings, forward.subject))}</strong> <span class="muted small">(forwardable)</span></summary><pre class="mail">${esc(forward.text)}</pre></details>
 <details style="margin-top:12px"><summary><strong>Email 2: ${esc(withPrefix(settings, owner.subject))}</strong> <span class="muted small">(private)</span></summary><pre class="mail">${esc(owner.text)}</pre></details>
-<form method="post" action="/admin/shows/${show.id}/send" class="btns" style="margin-top:18px"><button class="primary" type="submit"${to ? '' : ' disabled'}>${update ? 'Send updated schedule to Mick' : 'Send to Mick'}</button><a class="btn" href="/admin/shows/${show.id}">Cancel</a></form>
+<form method="post" action="/admin/shows/${show.id}/send" class="btns" style="margin-top:18px"><button class="primary" type="submit"${to ? '' : ' disabled'}>${update ? 'Send updated schedule' : 'Send final schedule'}</button><a class="btn" href="/admin/shows/${show.id}">Cancel</a></form>
 </section></div>`;
 }
 
@@ -319,7 +319,7 @@ const SITE_FIELDS = [
   ['facebook_url', 'Facebook Live link'], ['host_name', 'Host'], ['logo_url', 'Logo image URL'], ['current_season', 'Current season (default on /schedule)'], ['site_url', 'Site address (used in emails)'],
 ];
 const NOTIFY_FIELDS = [
-  ['alert_email', "Mick's email", 'Gets new-submission alerts and the "schedule is set" emails.'],
+  ['alert_email', 'Notification emails', 'Get new-submission alerts and the "schedule is set" emails. Separate several addresses with commas.'],
   ['from_email', 'Send from', 'Must be on a domain onboarded to Cloudflare Email Sending.'],
   ['from_name', 'Sender name', ''],
   ['email_subject_prefix', 'Subject prefix', 'Added to the start of every email subject, e.g. [TEST] during testing. Clear it to stop.'],
@@ -344,7 +344,7 @@ export function settingsPage({ settings: s, template, flash, env }) {
 ${flashHtml(flash)}
 <form class="fields card" method="post" action="/admin/settings">
 <h3>Notifications</h3>
-${NOTIFY_FIELDS.map(([k, l, h]) => `<label for="${k}">${l}${h ? ` <span class="hint">${esc(h)}</span>` : ''}</label><input id="${k}" name="${k}" value="${esc(s[k])}"${k === 'alert_email' ? ' type="email"' : k === 'arrive_before_min' ? ' type="number" min="0" max="120"' : ''}>`).join('')}
+${NOTIFY_FIELDS.map(([k, l, h]) => `<label for="${k}">${l}${h ? ` <span class="hint">${esc(h)}</span>` : ''}</label><input id="${k}" name="${k}" value="${esc(s[k])}"${k === 'arrive_before_min' ? ' type="number" min="0" max="120"' : ''}>`).join('')}
 <input type="hidden" name="email_admins_enabled" value="0"><input type="hidden" name="email_guests_enabled" value="0">
 <label style="display:flex;gap:10px;font-weight:500;margin-top:16px"><input type="checkbox" name="email_admins_enabled" value="1"${checked('email_admins_enabled')}> <span>Send email to Mick <span class="hint">Works on the free plan once Mick's address is verified in Cloudflare Email Routing.</span></span></label>
 <label style="display:flex;gap:10px;font-weight:500"><input type="checkbox" name="email_guests_enabled" value="1"${checked('email_guests_enabled')}> <span>Send confirmation emails to people who submit the form <span class="hint">Requires the Workers Paid plan. While off, confirmations are saved to the Email log only.</span></span></label>

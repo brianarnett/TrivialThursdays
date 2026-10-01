@@ -56,14 +56,16 @@ const cid = sql("SELECT id FROM content_items WHERE contact_email='jane.doe@exam
 
 console.log('Settings (owner)');
 {
-  const r = await req('/admin/settings', { form: [['alert_email', 'mick@example.com'], ['arrive_before_min', '15'], ['station_address', 'WRFL, 171 Student Center, Lexington KY'], ['dayof_contact', 'Studio line 859-555-0199'], ['email_admins_enabled', '0'], ['email_admins_enabled', '1']] });
+  const r = await req('/admin/settings', { form: [['alert_email', 'mick@example.com, Brian@Example.com'], ['arrive_before_min', '15'], ['station_address', 'WRFL, 171 Student Center, Lexington KY'], ['dayof_contact', 'Studio line 859-555-0199'], ['email_admins_enabled', '0'], ['email_admins_enabled', '1']] });
   ok(msgOf(r.loc) === 'Settings saved.', 'settings saved');
   const s = Object.fromEntries(sql("SELECT key, value FROM settings").map((x) => [x.key, x.value]));
-  ok(s.alert_email === 'mick@example.com' && s.email_admins_enabled === '1' && s.tagline.length > 20, 'partial save keeps other settings; checkbox read correctly');
+  ok(s.alert_email === 'mick@example.com, brian@example.com' && s.email_admins_enabled === '1' && s.tagline.length > 20, 'partial save keeps other settings; two notification addresses saved');
+  const badAddr = await req('/admin/settings', { form: { alert_email: 'mick@example.com, not-an-email' } });
+  ok(/not a valid email address: not-an-email/.test(msgOf(badAddr.loc)), 'invalid notification address rejected');
   await req('/suggest', { form: { contact_name: 'Jane Doe', contact_email: email, kind: 'music', title: 'Jane Doe Trio', description: 'Jazz trio playing originals.', performers: '3', consent: '1' } });
   await new Promise((r) => setTimeout(r, 800));
-  const alert = sql("SELECT status, error FROM email_log WHERE kind='submission_alert'");
-  ok(alert.length === 1 && alert[0].status === 'logged', 'alert logged for Mick (no EMAIL binding locally)', JSON.stringify(alert));
+  const alert = sql("SELECT status, error, to_addr FROM email_log WHERE kind='submission_alert'");
+  ok(alert.length === 2 && alert.every((a) => a.status === 'logged'), 'alert logged for both notification addresses', JSON.stringify(alert));
 }
 
 console.log('Inbox → approve → schedule');
@@ -118,7 +120,7 @@ console.log('Send final schedule');
   const sh = sql(`SELECT status, schedule_sent_at, changed_since_sent FROM shows WHERE id=${showId}`)[0];
   ok(sh.status === 'ready' && sh.schedule_sent_at && sh.changed_since_sent === 0, 'show marked Ready and sent');
   const mails = sql(`SELECT kind, to_addr FROM email_log WHERE show_id=${showId}`);
-  ok(mails.length === 2 && mails.every((m) => m.to_addr === 'mick@example.com'), 'two emails, both to Mick');
+  ok(mails.length === 4 && ['mick@example.com', 'brian@example.com'].every((a) => mails.filter((m) => m.to_addr === a).length === 2), 'forwardable + run sheet to each notification address');
 
   // change: remove Scott Whiddon from the layout
   let rows = slotsOf(showId);
