@@ -18,8 +18,9 @@
   "triggers": { "crons": ["0 6 * * *"] },
 
   "vars": {
-    // Cloudflare Access protects /admin. Fill these in after creating the Access application
-    // (Zero Trust → Access → Applications → Self-hosted, path /admin*).
+    // Admin sign-in uses Cloudflare Access. Simplest: Workers & Pages → this Worker → Access tab →
+    // "Protect this Worker behind Access" (no settings needed here). To protect only /admin on a custom
+    // domain instead, create a self-hosted Access app for that path and fill in these two values.
     "ACCESS_TEAM_DOMAIN": "",   // e.g. "https://yourteam.cloudflareaccess.com" (with or without https://)
     "ACCESS_AUD": "",           // the application's Audience (AUD) tag
     // First owner(s), comma-separated. They become owners on first sign-in; add everyone else on the People page.

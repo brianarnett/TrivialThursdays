@@ -230,7 +230,7 @@ function buildScheduleEmails(settings, show, changes) {
 async function handleAdmin(request, env, ctx, url) {
   const nonce = newNonce();
   const settingsP = db.getSettings(env.DB);
-  const auth = await resolveUser(request, env);
+  const auth = await resolveUser(request, env, ctx);
   const settings = await settingsP;
   if (auth.error) return htmlResponse(layout({ settings, nonce, title: 'No access', body: adm.deniedPage(auth.error), bare: false }), nonce, { status: 403 });
   const user = auth.user;

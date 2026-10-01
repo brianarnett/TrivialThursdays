@@ -18,8 +18,21 @@ async function getKeys(team) {
   return keys;
 }
 
-/** Returns { email } for a verified Access user, or { error }. */
-export async function verifyAccess(request, env) {
+/**
+ * Returns { email } for a verified Access user, or { error }.
+ * 1. Worker-level Access (Workers & Pages → Access tab): the runtime has already authenticated the
+ *    request and exposes the identity on ctx.access, so no JWT handling or AUD/team settings are needed.
+ * 2. Hostname-based Access (a self-hosted Access app, e.g. protecting only /admin on the real domain):
+ *    verify the Cf-Access-Jwt-Assertion JWT against ACCESS_TEAM_DOMAIN + ACCESS_AUD.
+ */
+export async function verifyAccess(request, env, ctx) {
+  if (ctx?.access) {
+    try {
+      const identity = await ctx.access.getIdentity();
+      if (identity?.email) return { email: String(identity.email).toLowerCase() };
+    } catch {}
+    // Fall through to JWT verification if the identity lookup came back empty.
+  }
   // Accept the team domain with or without https:// (the dashboard shows it with).
   const team = (env.ACCESS_TEAM_DOMAIN || '').trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
   const aud = (env.ACCESS_AUD || '').trim();
@@ -27,7 +40,7 @@ export async function verifyAccess(request, env) {
     // Local development only: `wrangler dev` with DEV_ADMIN_BYPASS=true in .dev.vars.
     // DEV_AS lets you test other roles locally, e.g. DEV_AS=producer@example.com
     if (env.DEV_ADMIN_BYPASS === 'true') return { email: (request.headers.get('x-dev-as') || env.DEV_AS || 'owner@dev.local').toLowerCase() };
-    return { error: 'Admin is locked: ACCESS_TEAM_DOMAIN and ACCESS_AUD are not configured.' };
+    return { error: 'Admin is locked: turn on Cloudflare Access for this Worker (Workers & Pages → Access tab), or set ACCESS_TEAM_DOMAIN and ACCESS_AUD.' };
   }
   const token = request.headers.get('Cf-Access-Jwt-Assertion');
   if (!token) return { error: 'Sign in through Cloudflare Access to use the admin.' };
@@ -69,8 +82,8 @@ export const can = (user, perm) => !!user && PERMS[perm].includes(user.role);
  * Resolve the signed-in admin user. The OWNER_EMAIL env var bootstraps the first owner;
  * everyone else must be added on the People page. In local dev, owner@dev.local is an owner.
  */
-export async function resolveUser(request, env) {
-  const id = await verifyAccess(request, env);
+export async function resolveUser(request, env, ctx) {
+  const id = await verifyAccess(request, env, ctx);
   if (id.error) return id;
   const email = id.email;
   const bootstrap = (env.OWNER_EMAIL || '').toLowerCase().split(',').map((s) => s.trim()).filter(Boolean);

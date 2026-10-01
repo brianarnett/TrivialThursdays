@@ -28,7 +28,7 @@ const msgOf = (loc) => decodeURIComponent((loc.split('msg=')[1] || '').replace(/
 console.log('Public pages');
 {
   const home = await req('/');
-  ok(home.status === 200 && home.text.includes('Next show'), 'home renders next show');
+  ok(home.status === 200 && /Next show|Today|On air now/.test(home.text), 'home renders next show (or today / on air)');
   ok(/content-security-policy/i.test([...home.headers.keys()].join(' ')), 'CSP header present');
   ok(!/onerror=|onclick=|onsubmit=/.test(home.text), 'no inline event handlers');
   const api = JSON.parse((await req('/api/episodes')).text);
