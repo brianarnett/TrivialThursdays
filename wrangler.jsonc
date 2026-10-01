@@ -14,13 +14,25 @@
     }
   ],
 
+  // Nightly housekeeping: mark aired shows, erase expired contact details (06:00 UTC).
+  "triggers": { "crons": ["0 6 * * *"] },
+
   "vars": {
-    // Cloudflare Access protects /admin. Fill these in after creating the Access application
-    // (Zero Trust → Access → Applications → Self-hosted, path /admin*).
-    "ACCESS_TEAM_DOMAIN": "",   // e.g. "yourteam.cloudflareaccess.com"
+    // Admin sign-in uses Cloudflare Access. Simplest: Workers & Pages → this Worker → Access tab →
+    // "Protect this Worker behind Access" (no settings needed here). To protect only /admin on a custom
+    // domain instead, create a self-hosted Access app for that path and fill in these two values.
+    "ACCESS_TEAM_DOMAIN": "",   // e.g. "https://yourteam.cloudflareaccess.com" (with or without https://)
     "ACCESS_AUD": "",           // the application's Audience (AUD) tag
+    // First owner(s), comma-separated. They become owners on first sign-in; add everyone else on the People page.
+    "OWNER_EMAIL": "",
+    // Optional Turnstile spam check on /suggest. Put the secret in with: npx wrangler secret put TURNSTILE_SECRET
+    "TURNSTILE_SITE_KEY": "",
     "SHOW_TZ": "America/New_York"
   }
+
+  // Email (Cloudflare Email Service). Uncomment after trivialthursdays.com is on Cloudflare DNS and
+  // onboarded under Email Service → Email Sending. Until then, emails are written to the Email log only.
+  // ,"send_email": [{ "name": "EMAIL" }]
 
   // To serve www.trivialthursdays.com from this Worker once DNS is on Cloudflare, uncomment:
   // ,"routes": [
