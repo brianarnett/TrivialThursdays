@@ -73,21 +73,24 @@ Sending requirements:
 
 ## Deploy
 
-The D1 database `trivial-thursdays` already exists and has migrations 0001–0002 applied.
+The D1 database `trivial-thursdays` already exists and has migrations 0001–0003 applied. A test copy of the site runs at https://trivial-thursdays.brian-arnett.workers.dev behind Access.
 
 ```bash
 npm install
 npx wrangler login
-npx wrangler d1 migrations apply trivial-thursdays --remote   # applies 0003 (show layout)
 npx wrangler deploy
 ```
 
-Then:
-1. **Access.** Go to Zero Trust → Access → Applications → Self-hosted, and protect path `admin*` on each hostname. Allow the admins' emails. Put the application's AUD tag and your team domain in `wrangler.jsonc` (`ACCESS_AUD`, `ACCESS_TEAM_DOMAIN`).
-2. **First owner.** Set `OWNER_EMAIL` in `wrangler.jsonc` to Mick's sign-in email, then deploy again.
-3. **Settings.** Fill in Mick's email, arrival minutes, station address and the day-of contact.
-4. **Turnstile (optional).** Set `TURNSTILE_SITE_KEY` and run `npx wrangler secret put TURNSTILE_SECRET`.
-5. **Domain.** Uncomment `routes` once DNS is on Cloudflare.
+Then set up admin sign-in with **Cloudflare Access**. This is what worked for the test site in October 2026:
+1. **Zero Trust (one time per account).** The first time you use Access, Cloudflare asks you to create a Zero Trust organization. Pick a team name and the **Free** plan. It asks for a card, but the Free plan isn't charged.
+2. **Protect the Worker.** Go to Workers & Pages → trivial-thursdays → **Access** tab → **Protect this Worker behind Access** → **All traffic**. Set the policy to **Include → Emails** with each admin's address. Use an *Emails* rule; an "Email domain" rule that contains a full address matches nobody.
+3. **Turn on email codes.** Go to Zero Trust → Integrations → **Identity providers** → Add → **One-time PIN**. Without it, the only sign-in method is a Cloudflare account password, so admins without a Cloudflare login can't get in.
+4. **First owner.** Set `OWNER_EMAIL` in `wrangler.jsonc` to the address the owner signs in with, then `npx wrangler deploy`. Add everyone else on the People page. They must also be on the Access policy.
+5. **Settings.** Fill in Mick's email, arrival minutes, station address and the day-of contact.
+6. **Turnstile (optional).** Set `TURNSTILE_SITE_KEY` and run `npx wrangler secret put TURNSTILE_SECRET`.
+7. **Domain.** Uncomment `routes` once DNS is on Cloudflare. On the real domain, protect only `/admin*` with a hostname-based Access app so the public pages stay open. Then fill in `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD`.
+
+With Worker-level Access, the site reads the signed-in person's email from `ctx.access`. With hostname-based Access, it verifies the Access JWT instead.
 
 Everything except guest-facing email fits in the Workers **Free** plan.
 
