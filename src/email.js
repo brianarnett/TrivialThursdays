@@ -5,7 +5,14 @@ import { esc, fmtTime, longDate, APPEAR_LABEL, isEmail } from './util.js';
 
 const ADMIN_KINDS = new Set(['submission_alert', 'schedule_forward', 'schedule_owner']);
 
-export async function sendEmail(env, settings, { kind, to, subject, text, show_id = null, content_id = null, actor = 'system', replyTo }) {
+/** Every subject gets the prefix from Settings (e.g. "[TEST] ") while the project is in testing. */
+export const withPrefix = (settings, subject) => {
+  const p = String(settings.email_subject_prefix || '').trim();
+  return p && !subject.startsWith(p) ? `${p} ${subject}` : subject;
+};
+
+export async function sendEmail(env, settings, { kind, to, subject: rawSubject, text, show_id = null, content_id = null, actor = 'system', replyTo }) {
+  const subject = withPrefix(settings, rawSubject);
   const toAdmin = ADMIN_KINDS.has(kind);
   const enabled = toAdmin ? settings.email_admins_enabled === '1' : settings.email_guests_enabled === '1';
   let status = 'logged', error = '';

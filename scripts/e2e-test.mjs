@@ -141,6 +141,14 @@ console.log('Send final schedule');
   ok(/Updated schedule/.test(msgOf(s2.loc)) && sql(`SELECT changed_since_sent c FROM shows WHERE id=${showId}`)[0].c === 0, 'updated schedule sent, flag cleared');
 }
 
+console.log('Email subject prefix');
+{
+  const subs = sql('SELECT subject FROM email_log');
+  ok(subs.length > 0 && subs.every((r) => r.subject.startsWith('[TEST] ')), 'every email subject starts with [TEST]', JSON.stringify(subs.slice(0, 2)));
+  const prev = await req(`/admin/shows/${showId}/send`);
+  ok(prev.text.includes('Email 1: [TEST] '), 'send preview shows the prefix');
+}
+
 console.log('Public view reflects layout, no private data');
 {
   const sched = await req('/schedule');

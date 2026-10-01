@@ -1,6 +1,7 @@
 // Admin screens. `perm` = { edit, send, admin } booleans for the signed-in user.
 import { esc, safeUrl, longDate, mediumDate, monthDay, dow, fmtTime, fmtClock, daysBetween, KIND_LABEL, SLOT_LABEL, STAGE_LABEL, APPEAR_LABEL, CONTENT_SLOT_TYPES, isEmail } from '../util.js';
 import { ROLES, ROLE_LABEL } from '../auth.js';
+import { withPrefix } from '../email.js';
 
 const flashHtml = (flash) => (flash ? `<div class="flash${/^(error|could not|there must|the same)/i.test(flash) ? ' bad' : ''}" role="status">${esc(flash)}</div>` : '');
 const stageTag = (st) => `<span class="tag ${{ new: '', reviewing: 'plain', approved: 'ok', scheduled: 'ok', aired: 'plain', declined: 'bad', hold: 'warn', withdrawn: 'plain' }[st] ?? 'plain'}">${STAGE_LABEL[st] || st}</span>`;
@@ -159,8 +160,8 @@ ${problems.length ? `<div class="card" style="margin-bottom:16px"><strong>Check 
 ${changes ? `<div class="card" style="margin-bottom:16px"><strong>Changes since the last send</strong><ul>${[...changes.added.map((c) => `Added: ${c.public_name}`), ...changes.moved.map((c) => `New time: ${c.public_name}`), ...changes.removed.map((c) => `Removed: ${c.public_name}`)].map((x) => `<li>${esc(x)}</li>`).join('') || '<li>No guest or time changes</li>'}</ul></div>` : ''}
 <h3>Forward to</h3><p>${forwardTo.length ? esc(forwardTo.join(', ')) : '<span class="muted">No guest email addresses on file.</span>'}</p>
 ${missing.length ? `<p class="small muted">No email on file for: ${esc(missing.join(', '))}</p>` : ''}
-<details open><summary><strong>Email 1: ${esc(forward.subject)}</strong> <span class="muted small">(forwardable)</span></summary><pre class="mail">${esc(forward.text)}</pre></details>
-<details style="margin-top:12px"><summary><strong>Email 2: ${esc(owner.subject)}</strong> <span class="muted small">(private)</span></summary><pre class="mail">${esc(owner.text)}</pre></details>
+<details open><summary><strong>Email 1: ${esc(withPrefix(settings, forward.subject))}</strong> <span class="muted small">(forwardable)</span></summary><pre class="mail">${esc(forward.text)}</pre></details>
+<details style="margin-top:12px"><summary><strong>Email 2: ${esc(withPrefix(settings, owner.subject))}</strong> <span class="muted small">(private)</span></summary><pre class="mail">${esc(owner.text)}</pre></details>
 <form method="post" action="/admin/shows/${show.id}/send" class="btns" style="margin-top:18px"><button class="primary" type="submit"${to ? '' : ' disabled'}>${update ? 'Send updated schedule to Mick' : 'Send to Mick'}</button><a class="btn" href="/admin/shows/${show.id}">Cancel</a></form>
 </section></div>`;
 }
@@ -321,6 +322,7 @@ const NOTIFY_FIELDS = [
   ['alert_email', "Mick's email", 'Gets new-submission alerts and the "schedule is set" emails.'],
   ['from_email', 'Send from', 'Must be on a domain onboarded to Cloudflare Email Sending.'],
   ['from_name', 'Sender name', ''],
+  ['email_subject_prefix', 'Subject prefix', 'Added to the start of every email subject, e.g. [TEST] during testing. Clear it to stop.'],
   ['arrive_before_min', 'In-studio guests arrive this many minutes early', 'Leave blank to leave arrival times out.'],
   ['station_address', 'Station address (for guests)', ''],
   ['dayof_contact', 'Day-of contact line (for guests)', 'e.g. a phone number for day-of problems'],
